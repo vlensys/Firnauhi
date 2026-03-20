@@ -1,0 +1,14 @@
+{
+	"schemaVersion": 1,
+	"id": "firnauhi-gametest",
+	"version": "1.0.0",
+	"name": "Firnauhi Game Tests",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-gametest": [
+		],
+		"fabric-client-gametest": [
+			"moe.nea.firnauhi.gametest.GameTest"
+		]
+	}
+}

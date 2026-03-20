@@ -1,0 +1,13 @@
+{
+	"required": true,
+	"plugin": "moe.nea.firnauhi.init.MixinPlugin",
+	"package": "moe.nea.firnauhi.mixins",
+	"compatibilityLevel": "JAVA_21",
+	"refmap": "Firnauhi-refmap.json",
+	"mixinextras": {
+		"minVersion": "0.5.0"
+	},
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

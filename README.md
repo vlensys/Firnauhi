@@ -10,7 +10,7 @@ SPDX-License-Identifier: CC0-1.0
 
 # Firnauhi
 
-### Firmament that doesn't snitch or autoupdate, compatible with Taunahi. 
+### Firmament that doesn't snitch or auto-update, compatible with Taunahi. 
 Made for use with Taunahi and other cheat/legit mods, and for users who care about their privacy and hate auto-updates. 
 
 Check out the best addon for Taunahi - https://github.com/jetzalel/ihanuat

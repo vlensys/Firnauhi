@@ -1,19 +1,19 @@
 # SPDX-FileCopyrightText: 2023 Linnea Gräf <nea@nea.moe>
 #
 # SPDX-License-Identifier: CC0-1.0
-
 name: Build
 on:
     - push
     - pull_request
-
 permissions:
     pull-requests: write
-
 jobs:
     build:
-        name: Build
+        name: Build (${{ matrix.mc_version }})
         runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                mc_version: [1.21.11, 1.21.10]
         steps:
             -   uses: actions/checkout@v5
                 name: Checkout repository
@@ -24,7 +24,7 @@ jobs:
             -   uses: ./.github/composite/gradle
             -   name: Build with gradle
                 run: |
-                    ./gradlew assemble --scan
+                    ./gradlew assemble --scan -Pmc_version=${{ matrix.mc_version }}
             -   name: Move build artifact around and print check sum
                 run: |
                     rm -f build/libs/*sources*.jar build/libs/*-api.jar
@@ -32,16 +32,18 @@ jobs:
             -   name: Upload build artifact
                 uses: actions/upload-artifact@v4
                 with:
-                    name: built-mod-jar
+                    name: built-mod-jar-${{ matrix.mc_version }}
                     path: build/libs/Firnauhi-*.jar
                     exclude: |
                         build/libs/*-sources.jar
                         build/libs/*-api.jar
-
     test:
-        name: Test
+        name: Test (${{ matrix.mc_version }})
         needs: build
         runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                mc_version: [1.21.1, 1.21.10]
         steps:
             -   uses: actions/checkout@v4
                 name: Checkout repository
@@ -52,25 +54,26 @@ jobs:
             -   uses: ./.github/composite/gradle
             -   name: Build with gradle
                 run: |
-                    ./gradlew test --scan
-
+                    ./gradlew test --scan -Pmc_version=${{ matrix.mc_version }}
     upload:
-        name: Upload
+        name: Upload (${{ matrix.mc_version }})
         runs-on: ubuntu-latest
         needs: build
         if: ${{ 'push' == github.event_name && ('master' == github.ref_name || startsWith(github.ref_name, 'mc-')) && '637563904' == github.repository_id }}
+        strategy:
+            matrix:
+                mc_version: [1.21.1, 1.21.10]
         steps:
             -   name: Download generated artifact
                 uses: actions/download-artifact@v5
                 with:
-                    name: built-mod-jar
+                    name: built-mod-jar-${{ matrix.mc_version }}
             -   name: Upload to discord
                 run: |
                     ls -lahR .
                     curl "$WEBHOOK_URL" -X POST -H "Content-type: multipart/form-data" --form "files[0]=@$(echo *.jar)"
                 env:
                     WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
-
     prepare-release:
         name: Prepare a release
         runs-on: ubuntu-22.04
@@ -85,20 +88,23 @@ jobs:
                     fetch-tags: true
                     fetch-depth: 0
                     filter: 'tree:0'
-
-            -   name: Download generated artifact
+            -   name: Download generated artifact (1.21.1)
                 uses: actions/download-artifact@v5
                 with:
-                    name: built-mod-jar
+                    name: built-mod-jar-1.21.1
+                    path: jars/
+            -   name: Download generated artifact (1.21.10)
+                uses: actions/download-artifact@v5
+                with:
+                    name: built-mod-jar-1.21.10
+                    path: jars/
             -   name: Generate changelog
                 run: ./docs/generate-changelog.sh > changelog.md
-
             -   name: Upload release
                 env:
                     GH_TOKEN: ${{ github.token }}
                 run: |
-                    gh release create --draft -t "Firnauhi ${GITHUB_REF#refs/tags/}" "${GITHUB_REF#refs/tags/}" -F "changelog.md" "*.jar"
-
+                    gh release create --draft -t "Firnauhi ${GITHUB_REF#refs/tags/}" "${GITHUB_REF#refs/tags/}" -F "changelog.md" jars/*.jar
             -   name: Notify discord
                 env:
                     ACTOR: ${{ github.actor }}

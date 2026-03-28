@@ -37,7 +37,8 @@ plugins {
 	alias(libs.plugins.mcAutoTranslations)
 }
 
-version = getGitTagInfo(libs.versions.minecraft.get())
+val targetMcVersion = providers.gradleProperty("mc_version").orElse(libs.versions.minecraft).get()
+version = getGitTagInfo(targetMcVersion)
 
 java {
 	withSourcesJar()
@@ -466,7 +467,7 @@ tasks.assemble { dependsOn(shadowJar) }
 tasks.processResources {
 	val replacements = listOf(
 		"version" to project.version.toString(),
-		"minecraft_version" to libs.versions.minecraft.get(),
+		"minecraft_version" to targetMcVersion,
 		"fabric_kotlin_version" to libs.versions.fabric.kotlin.get(),
 		"fabric_api_version" to libs.versions.fabric.api.get(),
 		"rei_version" to libs.versions.rei.get()

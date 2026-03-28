@@ -1,6 +1,5 @@
 package moe.nea.firnauhi.api.v1;
 
-import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.ApiStatus;
 
 @ApiStatus.NonExtendable
@@ -22,12 +21,12 @@ public interface FirnauhiItemWidget {
 	Placement getPlacement();
 
 	/**
-	 * get the currently displayed {@link ItemStack}. this empty stack might be empty. care should be taken not to
-	 * mutate the item stack instance, without {@link ItemStack#copy copying} it first.
+	 * get the currently displayed minecraft item stack object.
+	 * this stack might be empty. care should be taken not to mutate the instance without copying it first.
 	 *
-	 * @return the currently displayed {@link ItemStack}, may be empty.
+	 * @return the currently displayed item stack object, may be empty.
 	 */
-	ItemStack getItemStack();
+	Object getItemStack();
 
 	/**
 	 * @return a SkyBlock id, potentially processed to reflect more details about the item stack, such as which specific

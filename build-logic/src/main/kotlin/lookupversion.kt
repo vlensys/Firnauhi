@@ -6,20 +6,24 @@ fun execString(vararg args: String): String {
 	return pb.inputStream.readAllBytes().decodeToString().trim()
 }
 
-private val tag = "([0-9.]+)(?:\\+[^-]*)?".toRegex()
-private val tagOffset = "([0-9.]+)(?:\\+.*)?-([0-9]+)-(.+)".toRegex()
+private val describeTag = "^v?([0-9]+(?:\\.[0-9]+){1,2})-([0-9]+)-g[0-9a-fA-F]+$".toRegex()
 
 inline fun <T> Regex.useMatcher(string: String, block: (MatchResult) -> T): T? {
 	return matchEntire(string)?.let(block)
 }
 
 fun getGitTagInfo(mcVersion: String): String {
-	val str = execString("git", "describe", "--tags", "HEAD")
-	tag.useMatcher(str) {
-		return it.groupValues[1] + "+mc$mcVersion"
+	val str = runCatching {
+		execString("git", "describe", "--tags", "--long", "HEAD")
+	}.getOrDefault("")
+	describeTag.useMatcher(str) {
+		val base = it.groupValues[1]
+		val commitsAhead = it.groupValues[2]
+		if (commitsAhead == "0") return "$base+mc$mcVersion"
+		return "$base-dev.$commitsAhead+mc$mcVersion"
 	}
-	tagOffset.useMatcher(str) {
-		return it.groupValues[1] + "-dev+mc$mcVersion+" + it.groupValues[3]
-	}
-	return "nogitversion+mc$mcVersion"
+	val commits = runCatching {
+		execString("git", "rev-list", "--count", "HEAD")
+	}.getOrDefault("0")
+	return "0.0.0-dev.$commits+mc$mcVersion"
 }

@@ -41,7 +41,7 @@ class FirnauhiStackScreenProvider : HoveredItemStackProvider {
 		return FirnauhiAPI.getInstance()
 			.hoveredItemWidget
 			.getOrNull()
-			?.itemStack
+			?.itemStack as? ItemStack
 	}
 }
 

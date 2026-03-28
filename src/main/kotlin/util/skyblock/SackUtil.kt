@@ -76,7 +76,7 @@ object SackUtil {
 
 	fun getUpdatesFromMessage(text: Component): List<SackUpdate> {
 		val update = ChatUpdate()
-		text.siblings.forEach(update::updateFromHoverText)
+		update.updateFromHoverText(text)
 		return update.updates
 	}
 
@@ -88,12 +88,11 @@ object SackUtil {
 
 	private class ChatUpdate {
 		val updates = mutableListOf<SackUpdate>()
-		var foundAdded = false
-		var foundRemoved = false
+		val seenCleanText = mutableSetOf<String>()
 
 		fun updateFromCleanText(cleanedText: String) {
 			cleanedText.split("\n").forEach { line ->
-				changePattern.useMatch(line) {
+				changePattern.useMatch(line.trimEnd()) {
 					val amount = parseShortNumber(group("amount")).toLong()
 					val itemName = group("itemName")
 					val itemId = ItemNameLookup.guessItemByName(itemName, false)
@@ -106,21 +105,13 @@ object SackUtil {
 			text.siblings.forEach(::updateFromHoverText)
 			val hoverText = (text.style.hoverEvent as? HoverEvent.ShowText)?.value ?: return
 			val cleanedText = hoverText.unformattedString
-			if (cleanedText.startsWith("Added items:\n")) {
-				if (!foundAdded) {
-					updateFromCleanText(cleanedText)
-					foundAdded = true
-				}
-			}
-			if (cleanedText.startsWith("Removed items:\n")) {
-				if (!foundRemoved) {
-					updateFromCleanText(cleanedText)
-					foundRemoved = true
-				}
-			}
+			// The same hover blob is often repeated across multiple components in one chat line.
+			if (!seenCleanText.add(cleanedText)) return
+			updateFromCleanText(cleanedText)
 		}
 
 	}
 
-	val changePattern = "  (?<amount>[+\\-]$SHORT_NUMBER_FORMAT) (?<itemName>[^(]+) \\(.*\\)".toPattern()
+	val changePattern =
+		"\\s*(?<amount>[+\\-]$SHORT_NUMBER_FORMAT)\\s+(?<itemName>[^\\n(]+?)(?:\\s+\\(.*\\))?".toPattern()
 }

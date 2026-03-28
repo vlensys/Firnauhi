@@ -16,8 +16,10 @@ import io.github.notenoughupdates.moulconfig.observer.Property
 import java.util.TreeSet
 import me.shedaniel.math.Point
 import me.shedaniel.math.Rectangle
+import org.lwjgl.glfw.GLFW
 import net.minecraft.client.input.MouseButtonEvent
 import net.minecraft.client.gui.GuiGraphics
+import net.minecraft.client.gui.components.EditBox
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen
 import net.minecraft.client.input.CharacterEvent
@@ -99,6 +101,8 @@ class StorageOverlayScreen : Screen(Component.literal("")) {
 	}
 
 	var measurements = Measurements()
+	private var renamePage: StoragePageSlot? = null
+	private var renameField: EditBox? = null
 
 	public override fun init() {
 		super.init()
@@ -135,6 +139,7 @@ class StorageOverlayScreen : Screen(Component.literal("")) {
 	val controllerBackground = Identifier.parse("firnauhi:storageoverlay/storage_controls")
 
 	override fun onClose() {
+		finishTitleRename(save = true)
 		isExiting = true
 		resetScroll()
 		super.onClose()
@@ -348,16 +353,72 @@ class StorageOverlayScreen : Screen(Component.literal("")) {
 		return super.mouseDragged(click, offsetX, offsetY)
 	}
 
+	private fun isEditingTitle(page: StoragePageSlot): Boolean {
+		return renamePage == page && renameField != null
+	}
+
+	private fun titleRectAt(x: Int, y: Int, name: String): Rectangle {
+		return Rectangle(x + 6, y + 3, minOf(PAGE_WIDTH - 12, font.width(name)), font.lineHeight)
+	}
+
+	private fun beginTitleRename(page: StoragePageSlot, inventory: StorageData.StorageInventory, x: Int, y: Int) {
+		val field = EditBox(font, x + 4, y + 1, PAGE_WIDTH - 8, font.lineHeight + 6, Component.empty())
+		field.setValue(inventory.title)
+		field.setMaxLength(48)
+		field.setBordered(false)
+		field.setTextColor(0xFFFFFFFF.toInt())
+		field.setTextColorUneditable(0xFFFFFFFF.toInt())
+		field.setInvertHighlightedTextColor(false)
+		field.setFocused(true)
+		field.moveCursorToEnd(false)
+		renamePage = page
+		renameField = field
+	}
+
+	private fun finishTitleRename(save: Boolean) {
+		val page = renamePage
+		val field = renameField
+		renamePage = null
+		renameField = null
+		if (!save || page == null || field == null) return
+		val title = field.getValue().trim().ifBlank { page.defaultName() }
+		val data = StorageOverlay.Data.data
+		val stored = data.storageInventories[page] ?: return
+		if (stored.title != title) {
+			stored.title = title
+			StorageOverlay.Data.markDirty()
+		}
+	}
+
 	fun mouseClicked(click: MouseButtonEvent, doubled: Boolean, activePage: StoragePageSlot?): Boolean {
 		guiContext.setFocusedElement(null) // Blur all elements. They will be refocused by clickMCComponentInPlace if in doubt, and we don't have any double click components.
 		val mouseX = click.x
 		val mouseY = click.y
+		val renameField = this.renameField
+		if (renameField != null) {
+			if (renameField.isMouseOver(mouseX, mouseY)) {
+				return renameField.mouseClicked(click, doubled)
+			}
+			finishTitleRename(save = true)
+		}
 		if (getScrollPanelInner().contains(mouseX, mouseY)) {
 			val data = StorageOverlay.Data.data
-			layoutedForEach(data) { rect, page, _ ->
+			layoutedForEach(data) { rect, page, inventory ->
 				if (rect.contains(mouseX, mouseY) && activePage != page && click.button() == 0) {
+					val titleRect = titleRectAt(rect.x, rect.y, inventory.title)
+					if (doubled && titleRect.contains(mouseX, mouseY)) {
+						beginTitleRename(page, inventory, rect.x, rect.y)
+						return true
+					}
 					page.navigateTo()
 					return true
+				}
+				if (rect.contains(mouseX, mouseY) && click.button() == 0) {
+					val titleRect = titleRectAt(rect.x, rect.y, inventory.title)
+					if (doubled && titleRect.contains(mouseX, mouseY)) {
+						beginTitleRename(page, inventory, rect.x, rect.y)
+						return true
+					}
 				}
 			}
 			return false
@@ -382,6 +443,10 @@ class StorageOverlayScreen : Screen(Component.literal("")) {
 	}
 
 	override fun charTyped(input: CharacterEvent): Boolean {
+		renameField?.let {
+			it.charTyped(input)
+			return true
+		}
 		if (typeMCComponentInPlace(
 				controlComponent,
 				measurements.controlX, measurements.controlY,
@@ -395,6 +460,10 @@ class StorageOverlayScreen : Screen(Component.literal("")) {
 	}
 
 	override fun keyReleased(input: KeyEvent): Boolean {
+		renameField?.let {
+			it.keyReleased(input)
+			return true
+		}
 		if (typeMCComponentInPlace(
 				controlComponent,
 				measurements.controlX, measurements.controlY,
@@ -412,6 +481,18 @@ class StorageOverlayScreen : Screen(Component.literal("")) {
 	}
 
 	override fun keyPressed(input: KeyEvent): Boolean {
+		renameField?.let {
+			if (input.input() == GLFW.GLFW_KEY_ENTER || input.input() == GLFW.GLFW_KEY_KP_ENTER) {
+				finishTitleRename(save = true)
+				return true
+			}
+			if (input.input() == GLFW.GLFW_KEY_ESCAPE) {
+				finishTitleRename(save = false)
+				return true
+			}
+			it.keyPressed(input)
+			return true
+		}
 		if (typeMCComponentInPlace(
 				controlComponent,
 				measurements.controlX, measurements.controlY,
@@ -525,10 +606,18 @@ class StorageOverlayScreen : Screen(Component.literal("")) {
 				inv.rows * SLOT_SIZE + 4,
 				StorageOverlay.TConfig.outlineActiveStoragePageColour.getEffectiveColourRGB()
 			)
-		context.drawString(
-			font, Component.literal(name), x + 6, y + 3,
-			if (slots == null) 0xFFFFFFFF.toInt() else 0xFFFFFF00.toInt(), true
-		)
+		val renameField = renameField
+		if (isEditingTitle(page) && renameField != null) {
+			renameField.setX(x + 4)
+			renameField.setY(y + 1)
+			renameField.setWidth(PAGE_WIDTH - 8)
+			renameField.render(context, mouseX, mouseY, 0F)
+		} else {
+			context.drawString(
+				font, Component.literal(name), x + 6, y + 3,
+				if (slots == null) 0xFFFFFFFF.toInt() else 0xFFFFFF00.toInt(), true
+			)
+		}
 		context.drawGuiTexture(
 			slotRowSprite,
 			x + 2,

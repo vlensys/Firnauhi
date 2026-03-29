@@ -75,6 +75,8 @@ jobs:
                 with:
                     name: built-mod-jar-1.21.11
                     path: jars/
+            -   name: Make scripts executable
+                run: chmod +x docs/generate-changelog.sh
             -   name: Generate changelog
                 run: ./docs/generate-changelog.sh > changelog.md
             -   name: Upload release

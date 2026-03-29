@@ -71,7 +71,7 @@ jobs:
                     fetch-depth: 0
                     filter: 'tree:0'
             -   name: Download generated artifact (1.21.11)
-                uses: actions/download-artifact@v5
+                uses: actions/download-artifact@v4
                 with:
                     name: built-mod-jar-1.21.11
                     path: jars/

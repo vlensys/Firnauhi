@@ -13,7 +13,7 @@ jobs:
         runs-on: ubuntu-latest
         strategy:
             matrix:
-                mc_version: [1.21.11, 1.21.10]
+                mc_version: [1.21.11]
         steps:
             -   uses: actions/checkout@v5
                 name: Checkout repository
@@ -44,7 +44,7 @@ jobs:
         runs-on: ubuntu-latest
         strategy:
             matrix:
-                mc_version: [1.21.11, 1.21.10]
+                mc_version: [1.21.11]
         steps:
             -   uses: actions/checkout@v4
                 name: Checkout repository
@@ -74,11 +74,6 @@ jobs:
                 uses: actions/download-artifact@v5
                 with:
                     name: built-mod-jar-1.21.11
-                    path: jars/
-            -   name: Download generated artifact (1.21.10)
-                uses: actions/download-artifact@v5
-                with:
-                    name: built-mod-jar-1.21.10
                     path: jars/
             -   name: Generate changelog
                 run: ./docs/generate-changelog.sh > changelog.md

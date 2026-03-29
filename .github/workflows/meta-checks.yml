@@ -29,7 +29,6 @@ jobs:
                 id: generate-matrix
                 run: |
                     printf 'hooks=' >>"$GITHUB_OUTPUT"
-                    # Note: GitHub runner image mentions a yq already being installed. That is not jq but for yaml, but another unrelated program
                     pipx run yq -c '[.repos[]|.hooks[]|.id]' <.pre-commit-config.yaml | tee -a "$GITHUB_OUTPUT"
                     echo >>"$GITHUB_OUTPUT"
                     cat "$GITHUB_OUTPUT"
@@ -43,6 +42,8 @@ jobs:
         steps:
             -   uses: actions/checkout@v5
                 name: Checkout Repository
+            -   name: Make scripts executable
+                run: chmod +x check-translation-ordering.sh
             -   uses: actions/setup-python@v5
                 name: Setup Python
             -   name: Check ${{ matrix.hook }}

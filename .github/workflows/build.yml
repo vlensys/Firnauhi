@@ -13,7 +13,7 @@ jobs:
         runs-on: ubuntu-latest
         strategy:
             matrix:
-                mc_version: [1.21.11, 1.21.10]
+                mc_version: [1.21.11]
         steps:
             -   uses: actions/checkout@v5
                 name: Checkout repository
@@ -44,7 +44,7 @@ jobs:
         runs-on: ubuntu-latest
         strategy:
             matrix:
-                mc_version: [1.21.11, 1.21.10]
+                mc_version: [1.21.11]
         steps:
             -   uses: actions/checkout@v4
                 name: Checkout repository
@@ -62,7 +62,7 @@ jobs:
         needs: build
         permissions:
             contents: write
-        if: ${{ 'push' == github.event_name && startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         steps:
             -   uses: actions/checkout@v5
                 name: Checkout repository
@@ -71,19 +71,16 @@ jobs:
                     fetch-depth: 0
                     filter: 'tree:0'
             -   name: Download generated artifact (1.21.11)
-                uses: actions/download-artifact@v5
+                uses: actions/download-artifact@v4
                 with:
                     name: built-mod-jar-1.21.11
                     path: jars/
-            -   name: Download generated artifact (1.21.10)
-                uses: actions/download-artifact@v5
-                with:
-                    name: built-mod-jar-1.21.10
-                    path: jars/
+            -   name: Make scripts executable
+                run: chmod +x docs/generate-changelog.sh
             -   name: Generate changelog
                 run: ./docs/generate-changelog.sh > changelog.md
             -   name: Upload release
                 env:
                     GH_TOKEN: ${{ github.token }}
                 run: |
-                    gh release create --draft -t "Firnauhi ${GITHUB_REF#refs/tags/}" "${GITHUB_REF#refs/tags/}" -F "changelog.md" jars/*.jar
+                    gh release create --draft -t "Firnauhi ${{ github.sha }}" "${{ github.sha }}" -F "changelog.md" jars/*.jar

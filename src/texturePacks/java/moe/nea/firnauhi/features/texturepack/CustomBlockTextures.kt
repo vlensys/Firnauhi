@@ -179,6 +179,10 @@ object CustomBlockTextures {
 	data class LocationReplacements(
 		val lookup: Map<Block, List<BlockReplacement>>
 	) {
+		val fallbackLookup: Map<Block, Replacement?> = lookup.mapValues { (_, replacements) ->
+			replacements.firstOrNull()?.replacement
+		}
+
 		init {
 			lookup.forEach { (block, replacements) ->
 				for (replacement in replacements) {
@@ -269,7 +273,11 @@ object CustomBlockTextures {
 		if (isInFallback() && blockPos == null) {
 			return null
 		}
-		val replacements = currentIslandReplacements?.lookup?.get(block.block) ?: return null
+		val locationReplacements = currentIslandReplacements ?: return null
+		if (blockPos == null) {
+			return locationReplacements.fallbackLookup[block.block]
+		}
+		val replacements = locationReplacements.lookup[block.block] ?: return null
 		for (replacement in replacements) {
 			if (replacement.checks == null || matchesPosition(replacement, blockPos))
 				return replacement.replacement

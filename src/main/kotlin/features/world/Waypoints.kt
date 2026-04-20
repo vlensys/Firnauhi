@@ -38,32 +38,34 @@ object Waypoints {
 
 	var waypoints: FirmWaypoints? = null
 	var orderedIndex = 0
+	private val defaultWaypointColor = Color.ofRGBA(0, 80, 160, 128).color
+	private val orderedColors = intArrayOf(
+		Color.ofRGBA(180, 80, 20, 140).color,
+		Color.ofRGBA(180, 200, 40, 150).color,
+		Color.ofRGBA(0, 200, 40, 180).color,
+	)
 
 	@Subscribe
 	fun onRenderOrderedWaypoints(event: WorldRenderLastEvent) {
 		val w = useNonEmptyWaypoints() ?: return
 		RenderInWorldContext.renderInWorld(event) {
 			if (!w.isOrdered) {
-				w.waypoints.withIndex().forEach {
-					block(it.value.blockPos, Color.ofRGBA(0, 80, 160, 128).color)
-					if (TConfig.showIndex) withFacingThePlayer(it.value.blockPos.center) {
-						text(Component.literal(it.index.toString()))
+				for (index in w.waypoints.indices) {
+					val waypoint = w.waypoints[index]
+					block(waypoint.blockPos, defaultWaypointColor)
+					if (TConfig.showIndex) withFacingThePlayer(waypoint.blockPos.center) {
+						text(Component.literal(index.toString()))
 					}
 				}
 			} else {
 				orderedIndex %= w.waypoints.size
-				val firstColor = Color.ofRGBA(0, 200, 40, 180)
-				tracer(w.waypoints[orderedIndex].blockPos.center, color = firstColor.color, lineWidth = 3f)
-				w.waypoints.withIndex().toList().wrappingWindow(orderedIndex, 3).zip(
-					listOf(
-						firstColor,
-						Color.ofRGBA(180, 200, 40, 150),
-						Color.ofRGBA(180, 80, 20, 140),
-					)
-				).reversed().forEach { (waypoint, col) ->
-					val (index, pos) = waypoint
-					block(pos.blockPos, col.color)
-					if (TConfig.showIndex) withFacingThePlayer(pos.blockPos.center) {
+				tracer(w.waypoints[orderedIndex].blockPos.center, color = orderedColors[2], lineWidth = 3f)
+				val maxSteps = minOf(3, w.waypoints.size)
+				for (step in 0 until maxSteps) {
+					val index = (orderedIndex + step) % w.waypoints.size
+					val waypoint = w.waypoints[index]
+					block(waypoint.blockPos, orderedColors[2 - step])
+					if (TConfig.showIndex) withFacingThePlayer(waypoint.blockPos.center) {
 						text(Component.literal(index.toString()))
 					}
 				}
@@ -78,9 +80,16 @@ object Waypoints {
 		orderedIndex %= w.waypoints.size
 		val p = MC.player?.position ?: return
 		if (TConfig.skipToNearest) {
-			orderedIndex =
-				(w.waypoints.withIndex().minBy { it.value.blockPos.distToCenterSqr(p) }.index + 1) % w.waypoints.size
-
+			var nearestIndex = 0
+			var nearestDistance = Double.POSITIVE_INFINITY
+			for (index in w.waypoints.indices) {
+				val distance = w.waypoints[index].blockPos.distToCenterSqr(p)
+				if (distance < nearestDistance) {
+					nearestDistance = distance
+					nearestIndex = index
+				}
+			}
+			orderedIndex = (nearestIndex + 1) % w.waypoints.size
 		} else {
 			if (w.waypoints[orderedIndex].blockPos.closerToCenterThan(p, 3.0)) {
 				orderedIndex = (orderedIndex + 1) % w.waypoints.size
@@ -189,8 +198,16 @@ object Waypoints {
 					w.isOrdered = !w.isOrdered
 					if (w.isOrdered) {
 						val p = MC.player?.position ?: Vec3.ZERO
-						orderedIndex = // TODO: this should be extracted to a utility method
-							w.waypoints.withIndex().minByOrNull { it.value.blockPos.distToCenterSqr(p) }?.index ?: 0
+						var nearestIndex = 0
+						var nearestDistance = Double.POSITIVE_INFINITY
+						for (index in w.waypoints.indices) {
+							val distance = w.waypoints[index].blockPos.distToCenterSqr(p)
+							if (distance < nearestDistance) {
+								nearestDistance = distance
+								nearestIndex = index
+							}
+						}
+						orderedIndex = nearestIndex
 					}
 					source.sendFeedback(Component.translatable("firnauhi.command.waypoint.ordered.toggle.${w.isOrdered}"))
 				}
@@ -239,15 +256,4 @@ object Waypoints {
 			"firnauhi.command.waypoint.export.nowaypoints",
 			"No waypoints to export found. Add some with /firm waypoint ~ ~ ~."
 		)
-}
-
-fun <E> List<E>.wrappingWindow(startIndex: Int, windowSize: Int): List<E> {
-	val result = ArrayList<E>(windowSize)
-	if (startIndex + windowSize < size) {
-		result.addAll(subList(startIndex, startIndex + windowSize))
-	} else {
-		result.addAll(subList(startIndex, size))
-		result.addAll(subList(0, minOf(windowSize - (size - startIndex), startIndex)))
-	}
-	return result
 }

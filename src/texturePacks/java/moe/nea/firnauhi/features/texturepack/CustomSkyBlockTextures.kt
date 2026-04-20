@@ -54,6 +54,7 @@ object CustomSkyBlockTextures {
 
 	fun clearAllCaches() {
 		allItemCaches.forEach(WeakCache<*, *, *>::clear)
+		cachedSkullRenderTextures.clear()
 	}
 
 	@Subscribe
@@ -88,6 +89,14 @@ object CustomSkyBlockTextures {
 		}
 
 	private val mcUrlRegex = "https?://textures.minecraft.net/texture/([a-fA-F0-9]+)".toRegex()
+	private val cachedSkullRenderTextures = mutableMapOf<String, Identifier?>()
+
+	private fun getAvailableSkullTexture(id: String): Identifier? {
+		return cachedSkullRenderTextures.getOrPut(id) {
+			val identifier = Identifier.fromNamespaceAndPath("firmskyblock", "textures/placedskull/$id.png")
+			if (Minecraft.getInstance().resourceManager.getResource(identifier).isPresent) identifier else null
+		}
+	}
 
 	fun getSkullId(textureProperty: Property): String? {
 		val texture = decodeProfileTextureProperty(textureProperty) ?: return null
@@ -99,15 +108,14 @@ object CustomSkyBlockTextures {
 
 	fun getSkullTexture(profile: ResolvableProfile): Identifier? {
 		val id = getSkullId(profile.partialProfile().properties["textures"].firstOrNull() ?: return null) ?: return null
-		return Identifier.fromNamespaceAndPath("firmskyblock", "textures/placedskull/$id.png")
+		return getAvailableSkullTexture(id)
 	}
 
 	fun modifyRenderInfoType(gameProfile: GameProfile, cir: CallbackInfoReturnable<RenderType>) {
 		if (!TConfig.skullsEnabled) return
 		val textureProperty = gameProfile.properties["textures"].firstOrNull() ?: return
 		val id = getSkullId(textureProperty) ?: return
-		val identifier = Identifier.fromNamespaceAndPath("firmskyblock", "textures/placedskull/$id.png")
-		if (!Minecraft.getInstance().resourceManager.getResource(identifier).isPresent) return
+		val identifier = getAvailableSkullTexture(id) ?: return
 		cir.returnValue = RenderTypes.entityTranslucent(identifier)
 	}
 }

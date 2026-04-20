@@ -20,6 +20,8 @@ object TemporaryWaypoints {
 	)
 	val temporaryPlayerWaypointList = mutableMapOf<String, TemporaryWaypoint>()
 	val temporaryPlayerWaypointMatcher = "(?i)x: (-?[0-9]+),? y: (-?[0-9]+),? z: (-?[0-9]+)".toPattern()
+	private var cachedSkinLookupTick = -1
+	private var cachedPlayersByName = emptyMap<String, net.minecraft.client.multiplayer.PlayerInfo>()
 	@Subscribe
 	fun onProcessChat(it: ProcessChatEvent) {
 		val matcher = temporaryPlayerWaypointMatcher.matcher(it.unformattedString)
@@ -35,13 +37,16 @@ object TemporaryWaypoints {
 	fun onRenderTemporaryWaypoints(event: WorldRenderLastEvent) {
 		temporaryPlayerWaypointList.entries.removeIf { it.value.postedAt.passedTime() > TConfig.tempWaypointDuration }
 		if (temporaryPlayerWaypointList.isEmpty()) return
+		if (cachedSkinLookupTick != MC.currentTick) {
+			cachedSkinLookupTick = MC.currentTick
+			cachedPlayersByName = MC.networkHandler?.listedOnlinePlayers
+				?.associateBy { it.profile.name }
+				.orEmpty()
+		}
 		RenderInWorldContext.renderInWorld(event) {
-			temporaryPlayerWaypointList.forEach { (_, waypoint) ->
-				block(waypoint.pos, Color.ofRGBA(255, 255, 0, 128).color)
-			}
 			temporaryPlayerWaypointList.forEach { (player, waypoint) ->
-				val skin =
-					MC.networkHandler?.listedOnlinePlayers?.find { it.profile.name == player }?.skin?.body
+				block(waypoint.pos, Color.ofRGBA(255, 255, 0, 128).color)
+				val skin = cachedPlayersByName[player]?.skin?.body
 				withFacingThePlayer(waypoint.pos.center) {
 					waypoint(waypoint.pos, Component.translatableEscape("firnauhi.waypoint.temporary", player))
 					if (skin != null) {
